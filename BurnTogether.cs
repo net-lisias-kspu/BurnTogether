@@ -602,8 +602,8 @@ namespace BurnTogether
 
 				//set vessel's sas to steering target
 				vessel.Autopilot.SetMode(VesselAutopilot.AutopilotMode.StabilityAssist);
-				this.vessel.Autopilot.SAS.LockHeading(steeringTarget, true);
-				this.vessel.Autopilot.Update();
+				vessel.Autopilot.SAS.LockHeading(steeringTarget, true);
+
 
 
 				
@@ -658,8 +658,8 @@ namespace BurnTogether
 			if(leader!=null && s!=null)
 			{
 				Vector3 killVector = leader.vessel.GetObtVelocity() - this.vessel.GetObtVelocity();
-				Quaternion rotAdjust = Quaternion.Inverse (this.vessel.transform.rotation);
-			
+				Quaternion rotAdjust = Quaternion.Inverse (vessel.ReferenceTransform.rotation); //changed from vessel transform to reference transform
+
 				killVector = rotAdjust * killVector;
 				
 				float rcsFactor;
@@ -676,7 +676,7 @@ namespace BurnTogether
 		public void RoverControl(FlightCtrlState s)
 		{
 			Vector3 killVector = leader.vessel.GetObtVelocity() - this.vessel.GetObtVelocity();
-			Quaternion rotAdjust = Quaternion.Inverse (this.vessel.transform.rotation);
+			Quaternion rotAdjust = Quaternion.Inverse (vessel.ReferenceTransform.rotation);
 			
 			killVector = rotAdjust * killVector;
 			
