@@ -11,28 +11,67 @@ namespace BurnTogether
 		public bool isLeader = false;
 		public bool isFollowing = false;
 		public bool hasLeader = false;
-		public bool throttleLimit = false;
-		public float throttleLimitFactor = 1;
+		//public float throttleLimitFactor = 1;
 		public bool roverMode = false;
+
+		/*
+		[KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "Atmo Mode"), 
+		 UI_Toggle(disabledText = "Off", enabledText = "On")]
+		 */
 		public bool atmosphericMode = false;
 
-
-		List<BurnTogether> warpLockedFollowers = new List<BurnTogether>();
+		Dictionary<Vessel, Vector3> warpFollowers; //follower vessel, follower relative position
 		public List<BurnTogether> followers = new List<BurnTogether>();
 		
 		
-		private float throttleRatio;
+		public float followerThrottle;
+		float throttleLimit = 1;
 		private BurnTogether leader;
 		private AnimationState[] indicatorStates;
 		private bool beginWarp = true;
-		private Vector3d relPosition;
-		
+
 		[KSPField(isPersistant = false, guiActive = true, guiName = "Status")]
         public string statusGui = "Off";
 		[KSPField(isPersistant = false, guiActive = true, guiName = "AG Mimic")]
 		public bool mimicAG = false;
-		
-		
+
+
+		string debugString = string.Empty;
+
+		double prevYawAngle;
+		double yawAngVel;
+		double prevPitchAngle;
+		double pitchAngVel;
+		double prevRollAngle;
+		double rollAngVel;
+
+
+		[KSPField(isPersistant = true, guiActive = true, guiName = "Damper")]
+		public string damperDebug;
+		//[KSPField(isPersistant = true, guiActive = true, guiName = "CA")]
+		//public string caDebug;
+		//[KSPField(isPersistant = true, guiActive = true, guiName = "MoI")]
+		//public string moiDebug;
+
+		[KSPField(isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "Pitch Damper"),
+		 UI_FloatRange(minValue = 0, maxValue = 800, stepIncrement = 1f, scene = UI_Scene.All)]
+		public float cPitchDamper = 500;
+		[KSPField(isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "Roll Damper"),
+		 UI_FloatRange(minValue = 0, maxValue = 800, stepIncrement = 1f, scene = UI_Scene.All)]
+		public float cRollDamper = 350;
+		[KSPField(isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "Yaw Damper"),
+		 UI_FloatRange(minValue = 0, maxValue = 800, stepIncrement = 1f, scene = UI_Scene.All)]
+		public float cYawDamper = 500;
+
+		[KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "Custom "), 
+		 UI_Toggle(disabledText = "Damping Off", enabledText = "Damping On")]
+		public bool customDamping = false;
+		bool displayingDamper = true;
+
+		[KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "Overdrive"), 
+		 UI_Toggle(disabledText = "Off", enabledText = "On")]
+		public bool torqueOverdrive = false;
+
 		public LineRenderer foof; //debug
         
 		#region GUIButtons
@@ -64,7 +103,7 @@ namespace BurnTogether
 			SetOff ();
 			isFollowing = true;
 			this.vessel.ActionGroups.groups[3] = true; //enable rcs
-			this.vessel.ActionGroups.groups[4] = true; //enable sas
+			this.vessel.ActionGroups.groups[4] = false; //disable sas
 
 			foreach(Vessel v in FlightGlobals.Vessels)
 			{
@@ -79,7 +118,10 @@ namespace BurnTogether
 							leader = pp;
 							hasLeader = true;
 							//Debug.Log ("Found Leader.");
-							ScreenMessages.PostScreenMessage("Following "+leader.vessel.vesselName, 5, ScreenMessageStyle.UPPER_CENTER);
+							if(vessel == FlightGlobals.ActiveVessel)
+							{
+								ScreenMessages.PostScreenMessage("Following "+leader.vessel.vesselName, 5, ScreenMessageStyle.UPPER_CENTER);
+							}
 							statusGui = "Following "+leader.vessel.vesselName;
 							if(indicatorStates.Length > 0)
 							{
@@ -93,7 +135,10 @@ namespace BurnTogether
 							{
 								pp.followers.Add(this);
 							}
-							
+
+							//copy rotation
+							vessel.OnFlyByWire += new FlightInputCallback(FollowLeader);
+
 							//RCS kill relative v code
 							this.vessel.OnFlyByWire += new FlightInputCallback(RCSKillVelocity);
 							
@@ -116,12 +161,9 @@ namespace BurnTogether
 		[KSPEvent(guiActive = true, guiName = "All Follow Me")]
 		public void AllFollow()
 		{
-			if(isFollowing)  //turn off other leader bt first
+			if(isFollowing && leader != null)  //turn off other leader bt first
 			{
-				foreach(BurnTogether bt in leader.vessel.FindPartModulesImplementing<BurnTogether>())
-				{
-					bt.SetOff();
-				}
+				leader.SetOff();
 			}
 			
 			SetAsLeader ();
@@ -154,11 +196,9 @@ namespace BurnTogether
 			}
 			if(isFollowing)
 			{
-				if(leader)
-				{
-					leader.followers.Remove(this);
-				}
 
+
+				vessel.OnFlyByWire -= new FlightInputCallback(FollowLeader);
 				this.vessel.OnFlyByWire -= new FlightInputCallback(RCSKillVelocity);
 				if(roverMode)
 				{
@@ -173,7 +213,8 @@ namespace BurnTogether
 
 				//reset sas
 				vessel.Autopilot.SAS.DisconnectFlyByWire();
-				vessel.Autopilot.SAS.ConnectFlyByWire();
+
+				this.vessel.ActionGroups.groups[4] = true; 
 			}
 			if(isLeader)
 			{
@@ -184,8 +225,11 @@ namespace BurnTogether
 
 				foreach(BurnTogether fBt in followers)
 				{
-					fBt.SetOff();
-					ScreenMessages.PostScreenMessage("Releasing Follower: "+fBt.vessel.vesselName);
+					if(fBt && fBt.isFollowing)
+					{
+						fBt.SetOff();
+						ScreenMessages.PostScreenMessage("Releasing Follower: "+fBt.vessel.vesselName);
+					}
 				}
 
 				followers.Clear();
@@ -197,7 +241,7 @@ namespace BurnTogether
 			hasLeader = false;
 			leader = null;
 			statusGui = "Off";
-			throttleLimitFactor = 1;
+			//throttleLimitFactor = 1;
 		}
 		
 		
@@ -244,6 +288,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether fBt in followers)
 				{
+					if(fBt && fBt.isFollowing)
 					fBt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom01);	
 				}
 			}
@@ -257,7 +302,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom02);
 					}
@@ -272,7 +317,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom03);	
 					}
@@ -289,7 +334,7 @@ namespace BurnTogether
 
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom04);	
 					}
@@ -305,7 +350,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom05);	
 					}
@@ -320,7 +365,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom06);	
 					}
@@ -335,7 +380,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom07);	
 					}
@@ -350,7 +395,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom08);	
 					}
@@ -365,7 +410,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom09);	
 					}
@@ -380,7 +425,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Custom10);	
 					}
@@ -395,7 +440,7 @@ namespace BurnTogether
 			{
 				foreach(BurnTogether bt in followers)
 				{
-					if(bt.isFollowing)
+					if(bt && bt.isFollowing)
 					{
 						bt.vessel.ActionGroups.ToggleGroup(KSPActionGroup.Abort);	
 					}
@@ -420,238 +465,299 @@ namespace BurnTogether
 			
 			/*
 			foof = gameObject.AddComponent<LineRenderer>(); //debug
-			foof.SetWidth(0.5f, 0.5f);
-			foof.SetVertexCount(2);
+			foof.SetWidth(0.5f, 0.1f);
+			foof.SetVertexCount(6);
 			*/
 			
 			part.OnJustAboutToBeDestroyed += new Callback(SetOff);
-			
+
+
 		}
 		
 		
 		public override void OnUpdate()
 		{
-			
-			if(!this.vessel.IsControllable) //turn off when vessel is uncontrollable
-			{
-				SetOff ();
-			}
-			
+			ShowHideCustomDamper();
 
-			if(isLeader)
+			if(HighLogic.LoadedSceneIsFlight)
 			{
-				//leader warp handling
-				if(TimeWarp.CurrentRate>1 && TimeWarp.WarpMode == TimeWarp.Modes.HIGH)
-				{
-					if(beginWarp)
-					{
-						beginWarp = false;
-						Debug.Log ("Going into warp with "+followers.Count+" followers");
-						warpLockedFollowers.Clear();
-						foreach(BurnTogether bt in followers)
-						{
-							if((bt.vessel.obt_velocity-vessel.obt_velocity).sqrMagnitude < 0.01f)
-							{
-								warpLockedFollowers.Add(bt);
-								bt.relPosition = bt.vessel.transform.position - vessel.transform.position;
-							}
-						}
-						Debug.Log (warpLockedFollowers.Count+" warp-locked followers.");
-					}
-					else
-					{
-						foreach(BurnTogether wBt in warpLockedFollowers)
-						{
-
-							wBt.vessel.SetPosition(vessel.transform.position+wBt.relPosition);
-							//wBt.vessel.obt_velocity = this.vessel.obt_velocity;	
-						}
-					}
-				}
-				else
-				{
-					//ending warp. realign followers
-					if(!beginWarp)
-					{
-						foreach(BurnTogether wBt in warpLockedFollowers)
-						{
-							wBt.vessel.SetPosition(vessel.transform.position+wBt.relPosition);
-							wBt.vessel.obt_velocity = this.vessel.obt_velocity;	
-						}
-						warpLockedFollowers.Clear();
-					}
-					beginWarp = true;
-				}
-				//end leader warp handling
-			}
-
-			
-			
-			
-			else if(isFollowing && hasLeader) //code for following leader
-			{
-				if((leader.vessel.GetWorldPos3D()-vessel.GetWorldPos3D()).sqrMagnitude > Vessel.unloadDistance*Vessel.unloadDistance)
+				/*
+				if(!vessel.IsControllable && TimeWarp.CurrentRate == 1) //turn off when vessel is uncontrollable
 				{
 					SetOff ();
 				}
-
-				
-				foreach(BurnTogether bt in leader.vessel.FindPartModulesImplementing<BurnTogether>())  //bug if there is more than one BT module?
-				{
-					mimicAG = bt.mimicAG;	//activate/deactivate mimicAG on followers
-				}
-				
-				throttleRatio = 0;
-				throttleRatio += (GetThrustToWeight(leader.vessel)/GetThrustToWeight(this.vessel));
-				
-				
-				if(vessel.checkLanded())  //===================================================================Rover Mode===============
-				{
-					if(!roverMode)
-					{
-						Debug.Log ("roverMode enabled");
-						roverMode = true;
-						this.vessel.OnFlyByWire += new FlightInputCallback(RoverControl);
-						if(atmosphericMode)
-						{
-							Debug.Log ("atmosphericMode disabled");
-							atmosphericMode = false;
-						}
-					}
-				}
-				else
-				{
-					if(roverMode)
-					{
-						Debug.Log ("roverMode disabled");
-						roverMode = false;
-						this.vessel.OnFlyByWire -= new FlightInputCallback(RoverControl);
-					}
-				}
-
-				/*
-				if(this.vessel.atmDensity>0)
-				{
-					if(!atmosphericMode && !roverMode)
-					{
-						Debug.Log ("atmosphericMode enabled");
-						atmosphericMode = true;
-					}
-				}
-				else
-				{
-					if(atmosphericMode)
-					{
-						Debug.Log ("atmosphericMode disabled");
-						atmosphericMode = false;
-					}
-				}
 				*/
-				
-				if(leader.vessel.ctrlState.mainThrottle>0 && GetFinalThrustToWeight(leader.vessel)>0) //added check for leader fuel
+
+
+				if(isLeader)
 				{
-					float targetThrottle = Mathf.Clamp01 (leader.vessel.ctrlState.mainThrottle * throttleRatio);
-					this.vessel.ctrlState.mainThrottle = targetThrottle;
-				}
-				else
-				{
-					this.vessel.ctrlState.mainThrottle = 0;
+					MoveWarpFollowers();
 				}
 				
-				if(throttleRatio>1) //if followers have insufficient max thrust         //try removing this constraint and having throttle limit factor always updated, clamped to 1.
+				
+				else if(isFollowing && hasLeader && leader!=null && !vessel.packed) //following leader
 				{
-					foreach(BurnTogether bt in leader.vessel.FindPartModulesImplementing<BurnTogether>())
+					if(TimeWarp.WarpMode == TimeWarp.Modes.LOW || TimeWarp.CurrentRate == 1)
 					{
-						if(((1/throttleRatio)-.001f) < bt.throttleLimitFactor)
+						/*
+						if((leader.vessel.GetWorldPos3D()-vessel.GetWorldPos3D()).sqrMagnitude > Vessel.unloadDistance*Vessel.unloadDistance)
 						{
-							bt.throttleLimitFactor = (1/throttleRatio)-.001f;
+							SetOff ();
 						}
-						bt.throttleLimit = true;
-					}
-				}
-				
-				
-				//steering --need to make more stable==============================================================STEERING
-				Quaternion steeringTarget = leader.vessel.Autopilot.SAS.lockedHeading;
-
-				
-				if(atmosphericMode) //FUUUK
-				{
-					Vector3 killVector = leader.vessel.GetObtVelocity() - this.vessel.GetObtVelocity();
-					Quaternion rotAdjust = Quaternion.Inverse (this.vessel.transform.rotation);
-					/*
-					foof.SetVertexCount(2);
-					foof.SetPosition(0, vessel.transform.position);
-					foof.SetPosition(1, vessel.transform.position + 20*(vessel.vesselTransform.right));// * Vector3.forward));
-					*/
-					killVector = rotAdjust * killVector;
-					float pitchFactor = 1;
-					//steeringTarget *= Quaternion.AngleAxis(Mathf.Clamp(pitchFactor * -killVector.z, -10, 10), -vessel.ReferenceTransform.right);
-					
-					//float yawFactor = 0.5f;
-					//steeringTarget *= Quaternion.AngleAxis(Mathf.Clamp(yawFactor * killVector.x, -6, 6), vessel.ReferenceTransform.forward);
-					
-					//float rollFactor = 0.01f;
-					//steeringTarget *= Quaternion.AngleAxis(Mathf.Clamp(rollFactor * -killVector.x, -1, 1), vessel.ReferenceTransform.forward);
-					
-					steeringTarget *= Quaternion.AngleAxis(Mathf.Clamp ((float)(leader.vessel.altitude-vessel.altitude)*0.7f, -18, 18), vessel.vesselTransform.right);
-					//Debug.Log ("X: "+killVector.x+", Y: "+killVector.y+", Z: "+killVector.z);
-					Debug.Log ("Pitch adjustment: "+pitchFactor * -killVector.z);
-				}
+						*/
 
 
-				//set vessel's sas to steering target
-				vessel.Autopilot.SetMode(VesselAutopilot.AutopilotMode.StabilityAssist);
-				vessel.Autopilot.SAS.LockHeading(steeringTarget, true);
+						mimicAG = leader.mimicAG;	//activate/deactivate mimicAG on followers
 
+						if(vessel.checkLanded())  //===================================================================Rover Mode===============
+						{
+							if(!roverMode)
+							{
+								Debug.Log ("roverMode enabled");
+								roverMode = true;
+								this.vessel.OnFlyByWire += new FlightInputCallback(RoverControl);
+								if(atmosphericMode)
+								{
+									Debug.Log ("atmosphericMode disabled");
+									atmosphericMode = false;
+								}
+							}
+						}
+						else
+						{
+							if(roverMode)
+							{
+								Debug.Log ("roverMode disabled");
+								roverMode = false;
+								this.vessel.OnFlyByWire -= new FlightInputCallback(RoverControl);
+							}
+						}
+						
+						//action group mimic -- Togglables(gear, lights, rover brakes) handled here.  The rest are in the ActiongGroups section.
+						if(mimicAG)
+						{
+							if(leader.vessel.ActionGroups.groups[1])
+							{
+								this.vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, true);
+							}
+							else
+							{
+								this.vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, false);
+							}
+							
+							if(leader.vessel.ActionGroups.groups[2])
+							{
+								this.vessel.ActionGroups.SetGroup(KSPActionGroup.Light, true);
+							}
+							else
+							{
+								this.vessel.ActionGroups.SetGroup(KSPActionGroup.Light, false);
+							}
+						}
+						if(mimicAG || roverMode)  //brake toggles mimiced only in rover mode or agmimic.
+						{
+							if(leader.vessel.ActionGroups.groups[5])
+							{
+								this.vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, true);
+							}
+							else
+							{
+								this.vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, false);
+							}
+						}
 
-
-				
-				
-				//action group mimic -- Togglables(gear, lights, rover brakes) handled here.  The rest are in the ActiongGroups section.
-				if(mimicAG)
-				{
-					if(leader.vessel.ActionGroups.groups[1])
-					{
-						this.vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, true);
-					}
-					else
-					{
-						this.vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, false);
-					}
-					
-					if(leader.vessel.ActionGroups.groups[2])
-					{
-						this.vessel.ActionGroups.SetGroup(KSPActionGroup.Light, true);
-					}
-					else
-					{
-						this.vessel.ActionGroups.SetGroup(KSPActionGroup.Light, false);
-					}
-				}
-				if(mimicAG || roverMode)  //brake toggles mimiced only in rover mode.
-				{
-					if(leader.vessel.ActionGroups.groups[5])
-					{
-						this.vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, true);
-					}
-					else
-					{
-						this.vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, false);
 					}
 				}
 			}
 		}
 
+		void FixedUpdate()
+		{
+			if(HighLogic.LoadedSceneIsFlight)
+			{
+				if(isFollowing && hasLeader && leader!=null)
+				{
+
+
+					//roll
+					Vector3d referenceForwardRoll = vessel.ReferenceTransform.forward;
+					Vector3d referenceRightRoll = vessel.ReferenceTransform.right;
+					
+					Vector3d leaderDirectionRoll = Utils.ProjectOnPlane(leader.vessel.ReferenceTransform.forward, Vector3d.zero, vessel.ReferenceTransform.up);
+					double angleRoll = Vector3d.Angle(leaderDirectionRoll, referenceForwardRoll);
+					double signRoll = -Math.Sign(Vector3d.Dot (leaderDirectionRoll, referenceRightRoll));
+					double finalAngleRoll = signRoll*angleRoll;
+					
+					rollAngVel = (finalAngleRoll-prevRollAngle)*Time.fixedDeltaTime;
+					prevRollAngle = finalAngleRoll;
+
+					
+					
+					Vector3 referenceForward = vessel.ReferenceTransform.up;
+
+					//yaw
+					Vector3d referenceRightYaw = vessel.ReferenceTransform.right;
+					Vector3d leaderDirectionYaw = Utils.ProjectOnPlane(leader.vessel.ReferenceTransform.up, Vector3d.zero, vessel.ReferenceTransform.forward);
+					double angleYaw = Vector3d.Angle(leaderDirectionYaw, referenceForward);
+					double signYaw = Math.Sign (Vector3d.Dot (leaderDirectionYaw, referenceRightYaw));
+					double finalAngleYaw = signYaw*angleYaw;
+
+
+					yawAngVel = (finalAngleYaw-prevYawAngle)*Time.fixedDeltaTime;
+					prevYawAngle = finalAngleYaw;
+
+					
+					//pitch
+					Vector3d referenceRightPitch = -vessel.ReferenceTransform.forward;
+					Vector3d leaderDirectionPitch = Utils.ProjectOnPlane(leader.vessel.ReferenceTransform.up, Vector3d.zero, vessel.ReferenceTransform.right);
+					double anglePitch = Vector3d.Angle(leaderDirectionPitch, referenceForward);
+					double signPitch = Math.Sign (Vector3d.Dot (leaderDirectionPitch, referenceRightPitch));
+					double finalAnglePitch = signPitch*anglePitch;
+					
+					pitchAngVel = (finalAnglePitch-prevPitchAngle)*Time.fixedDeltaTime;
+					prevPitchAngle = finalAnglePitch;
+					
+
+
+				}
+			}
+		}
 		
 
 		public override void OnInactive()
 		{
 			SetOff ();	
 		}
+
+		void MoveWarpFollowers()
+		{
+			//leader warp handling
+			if(TimeWarp.CurrentRate>1 && TimeWarp.WarpMode == TimeWarp.Modes.HIGH)
+			{
+				if(beginWarp)
+				{
+					beginWarp = false;
+
+					warpFollowers = new Dictionary<Vessel, Vector3>();
+					foreach(BurnTogether bt in followers)
+					{
+						if(bt && bt.isFollowing && (bt.vessel.obt_velocity-vessel.obt_velocity).sqrMagnitude < 0.01f)
+						{
+							warpFollowers.Add(bt.vessel, bt.vessel.transform.position-vessel.transform.position);
+						}
+					}
+
+					Debug.Log ("Going into warp with "+warpFollowers.Count+" locked followers");
+				}
+
+
+
+				foreach(var wFollower in warpFollowers)
+				{
+					wFollower.Key.SetPosition(vessel.transform.position+wFollower.Value);
+					wFollower.Key.obt_velocity = vessel.obt_velocity;
+				}
+
+			}
+			else
+			{
+
+				//ending warp. realign followers
+				if(!beginWarp)
+				{
+					foreach(var wFollower in warpFollowers)
+					{
+						Vector3d newPosition = vessel.transform.position+wFollower.Value;
+
+						wFollower.Key.SetPosition(vessel.transform.position+wFollower.Value);
+						wFollower.Key.obt_velocity = vessel.obt_velocity;
+						wFollower.Key.SetWorldVelocity(vessel.obt_velocity);
+
+						wFollower.Key.orbit.UpdateFromStateVectors(newPosition.xzy, vessel.obt_velocity.xzy, vessel.mainBody, Planetarium.GetUniversalTime());
+					}
+
+					Debug.Log ("Coming out of warp with "+warpFollowers.Count+" locked followers");
+				}
+
+				beginWarp = true;
+
+			}
+			//end leader warp handling
+		}
 		
 		
 		//=======Flight Inputs============
+
+		//prototype
+		public void FollowLeader(FlightCtrlState s)
+		{
+			if(leader!=null && s!=null)
+			{
+				double maxControl = torqueOverdrive ? 1.5 : 1.0;
+				Vector3d damper = Vector3d.zero;
+				var centerOfMass = vessel.findWorldCenterOfMass();
+				Vector3 momentOfInertia = vessel.findLocalMOI(centerOfMass);
+
+				//automatic damping (needs improvement)
+				if(!customDamping)
+				{
+					Vector3d torque = Utils.GetTorque(vessel, 0);
+					var effectiveInertia = Utils.GetEffectiveInertia(vessel, torque);
+					Vector3d controlAuthority = Vector3d.Scale(torque, Utils.Inverse(momentOfInertia));
+					damper = 4500 * Utils.Inverse(Utils.Abs(controlAuthority)+Vector3d.one);
+
+					//test: increased roll damping
+					damper = Vector3d.Scale(damper, new Vector3d(1, 1.2, 1));
+
+					damper = Utils.ClampAxes(damper, 180, 750);
+				}
+				else
+				{
+					damper = new Vector3(cPitchDamper, cRollDamper, cYawDamper);
+				}
+
+				damperDebug = ((float)damper.x).ToString("0")+", "+((float)damper.y).ToString("0")+", "+((float)damper.z).ToString("0");
+
+				Vector3d steerMult = Vector3d.one;
+				if(atmosphericMode)
+				{
+					steerMult *= 1.5;
+					damper = new Vector3d(650,350,650);
+				}
+
+				double damperPitch = Math.Abs(damper.x);
+				double damperRoll = Math.Abs(damper.y);
+				double damperYaw = Math.Abs(damper.z);
+
+				float pitch = (float)Utils.Clamp((steerMult.x*prevPitchAngle)+(damperPitch*pitchAngVel), -maxControl, maxControl);
+				float roll = (float)Utils.Clamp((steerMult.y*prevRollAngle)+(damperRoll*rollAngVel), -maxControl, maxControl);
+				float yaw = (float)Utils.Clamp((steerMult.z*prevYawAngle)+(damperYaw*yawAngVel), -maxControl, maxControl);
+
+
+				//limit angular momentum
+				Vector3d localAngMomentum = Vector3d.Scale(momentOfInertia, new Vector3d(pitchAngVel, rollAngVel, yawAngVel));
+				double maxAngMomentum = .075f;
+				if((int)Mathf.Sign(pitch) != Math.Sign(pitchAngVel) && Math.Abs(localAngMomentum.x) > maxAngMomentum)
+				{
+					pitch = 0;
+				}
+				if((int)Mathf.Sign(roll) != Math.Sign(rollAngVel) && Math.Abs(localAngMomentum.y) > maxAngMomentum)
+				{
+					roll = 0;
+				}
+				if((int)Mathf.Sign(yaw) != Math.Sign(yawAngVel) && Math.Abs(localAngMomentum.z) > maxAngMomentum)
+				{
+					yaw = 0;
+				}
+
+				//finally set control state inputs
+				s.pitch = pitch;
+				s.roll = roll;
+				s.yaw = yaw;
+
+				s.mainThrottle = followerThrottle;
+			}
+		}
 		
 		public void RCSKillVelocity(FlightCtrlState s)
 		{
@@ -692,24 +798,59 @@ namespace BurnTogether
 				s.wheelThrottle = Mathf.Clamp (wheelThrottleFactor*killVector.z, -1, 1);
 			}
 			s.wheelSteer = Mathf.Clamp(-wheelSteerFactor*killVector.x, -1, 1);
+
 		}
 		
 		
 		
-		public void LimitLeaderThrottle(FlightCtrlState s)  //for cutting leader throttle if followers have insufficient thrust.
+		public void LimitLeaderThrottle(FlightCtrlState s) 
 		{
-			if(throttleLimit)
+			float TWR = GetThrustToWeight(vessel);
+			float newThrottleLimit = 1;
+			foreach(var follower in followers)
 			{
-				//Debug.Log ("Limiting leader throttle to "+throttleLimitFactor);
-				if(this.vessel.ctrlState.mainThrottle>throttleLimitFactor)
+				if(follower && follower.isFollowing && follower.leader == this)
 				{
-					s.mainThrottle = throttleLimitFactor;
+					float fTWR = GetThrustToWeight(follower.vessel);
+
+					float throttleFactor = fTWR/TWR;
+					if(throttleFactor < throttleLimit)
+					{
+						throttleLimit = throttleFactor;
+					}
+
+					if(throttleFactor < newThrottleLimit)
+					{
+						newThrottleLimit = throttleFactor;
+					}
+
+					//limit throttle if follower twr is lower
+					if(this.vessel.ctrlState.mainThrottle>throttleLimit)
+					{
+						s.mainThrottle = throttleLimit-0.01f;
+						vessel.ctrlState.mainThrottle = throttleLimit-0.01f;
+					}
+
+					if(vessel.ctrlState.mainThrottle > 0 && GetFinalThrustToWeight(vessel) > 0)
+					{
+						follower.followerThrottle = Mathf.Clamp01(vessel.ctrlState.mainThrottle * (TWR/fTWR));
+					}
+					else
+					{
+						follower.followerThrottle = 0;
+					}
 				}
 			}
+
+			//set new throttle limit if followers gain higher twr
+			if(newThrottleLimit > throttleLimit)
+			{
+				throttleLimit = newThrottleLimit;
+			}
+
 		}
-		
-		
-		
+
+	
 		
 		//Utils
 		
@@ -763,15 +904,34 @@ namespace BurnTogether
 			return totalThrust/vesselMass;
 			
 		}
-		/*
-		void OnGUI()
+
+		void ShowHideCustomDamper()
 		{
-			if(isLeader)
+			if(customDamping && !displayingDamper)
 			{
-				GUI.Label(new Rect(200,200,200,200), "angle of current rotation and locked heading: "+Quaternion.Angle(vessel.Autopilot.SAS.lockedHeading, vessel.Autopilot.SAS.currentRotation));
+				displayingDamper = true;
+				Fields["cPitchDamper"].guiActive = true;
+				Fields["cPitchDamper"].guiActiveEditor = true;
+				Fields["cRollDamper"].guiActive = true;
+				Fields["cRollDamper"].guiActiveEditor = true;
+				Fields["cYawDamper"].guiActive = true;
+				Fields["cYawDamper"].guiActiveEditor = true;
+				Utils.RefreshAssociatedWindows(part);
+			}
+			else if(!customDamping && displayingDamper)
+			{
+				displayingDamper = false;
+				Fields["cPitchDamper"].guiActive = false;
+				Fields["cPitchDamper"].guiActiveEditor = false;
+				Fields["cRollDamper"].guiActive = false;
+				Fields["cRollDamper"].guiActiveEditor = false;
+				Fields["cYawDamper"].guiActive = false;
+				Fields["cYawDamper"].guiActiveEditor = false;
+				Utils.RefreshAssociatedWindows(part);
 			}
 		}
-		*/
+
+
 	}
 }
 
