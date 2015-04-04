@@ -2,8 +2,8 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="BurnTogether.cs">
     <Files>
-      <File FileName="BurnTogether.cs" Line="908" Column="30" />
-      <File FileName="Utils.cs" Line="154" Column="37" />
+      <File FileName="BurnTogether.cs" Line="599" Column="6" />
+      <File FileName="Utils.cs" Line="1" Column="1" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">

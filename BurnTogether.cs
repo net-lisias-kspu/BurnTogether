@@ -641,7 +641,7 @@ namespace BurnTogether
 					warpFollowers = new Dictionary<Vessel, Vector3>();
 					foreach(BurnTogether bt in followers)
 					{
-						if(bt && bt.isFollowing && (bt.vessel.obt_velocity-vessel.obt_velocity).sqrMagnitude < 0.01f)
+						if(bt && bt.isFollowing && (bt.vessel.obt_velocity-vessel.obt_velocity).sqrMagnitude < 0.1f && !warpFollowers.ContainsKey(bt.vessel))
 						{
 							warpFollowers.Add(bt.vessel, bt.vessel.transform.position-vessel.transform.position);
 						}
