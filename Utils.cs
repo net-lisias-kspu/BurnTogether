@@ -41,7 +41,7 @@ namespace BurnTogether
 		//from kOS
 		public static Vector3d GetTorque(Vessel vessel, float thrust)
 		{
-			Vector3 centerOfMass = vessel.findWorldCenterOfMass();
+			Vector3 centerOfMass = vessel.CoM;
 			Vector3 rollaxis = vessel.ReferenceTransform.up;
 			rollaxis.Normalize ();
 			Vector3 pitchaxis = vessel.GetFwdVector ();
@@ -94,8 +94,8 @@ namespace BurnTogether
 
 		public static Vector3d GetEffectiveInertia(Vessel vessel, Vector3d torque)
 		{
-			Vector3 centerOfMass = vessel.findWorldCenterOfMass();
-			Vector3 momentOfInertia = vessel.findLocalMOI(centerOfMass);
+			Vector3 centerOfMass = vessel.CoM;
+		  Vector3 momentOfInertia = vessel.localCoM; // was .findLocalMOI(centerOfMass);
 			Vector3 angularVelocity = Quaternion.Inverse(vessel.ReferenceTransform.rotation) * vessel.GetComponent<Rigidbody>().angularVelocity;
 			Vector3d angularMomentum = new Vector3d(angularVelocity.x * momentOfInertia.x, angularVelocity.y * momentOfInertia.y, angularVelocity.z * momentOfInertia.z);
 			

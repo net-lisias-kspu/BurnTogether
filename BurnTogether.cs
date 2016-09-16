@@ -695,8 +695,8 @@ namespace BurnTogether
 			{
 				double maxControl = torqueOverdrive ? 1.5 : 1.0;
 				Vector3d damper = Vector3d.zero;
-				Vector3 centerOfMass = vessel.findWorldCenterOfMass();
-				Vector3 momentOfInertia = vessel.findLocalMOI(centerOfMass);
+				Vector3 centerOfMass = vessel.CoM;
+			  Vector3 momentOfInertia = vessel.localCoM; // was   .findLocalMOI(centerOfMass);
 
 				//automatic damping (needs improvement)
 				if(!customDamping)
