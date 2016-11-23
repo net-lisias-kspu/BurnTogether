@@ -1,3 +1,46 @@
+#######################################
+Project Ignore
+#######################################
+
+#BurnTogether/Distribution/GameData/BurnTogether/Plugins/BurnTogether.dll
+BurnTogether/.vs
+BurnTogether/obj
+BurnTogether/bin/Debug/
+
+BurnTogether/.vs/config
+BurnTogether/LocalDev/7za_dir.txt
+BurnTogether/LocalDev/dist_dir.txt
+BurnTogether/LocalDev/ksp_dir.txt
+BurnTogether/LocalDev/mono_exe.txt
+BurnTogether/LocalDev/pdb2mdb_exe.txt
+BurnTogether/BurnTogether.userprefs
+
+#######################################
+Unity Ignore
+#######################################
+
+TrackIRUnity.dll
+Assembly-*
+Mono*
+TDx*
+UnityEngine.dll
+*.pdb
+*.jar
+*.bat
+*.zip
+KSPAssets.dll
+KSPCore.dll
+KSPUtil.dll
+SaveUpgradePipeline.Core.dll
+UnityEngine.UI.dll
+UnityEngine.xml
+Vectrosity.dll
+
+#######################################
+#######################################
+System*
+mscorlib.dll
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
@@ -26,21 +69,10 @@ $RECYCLE.BIN/
 .LSOverride
 
 # Icon must ends with two \r.
-Icon
-
+Icon
 # Thumbnails
 ._*
 
 # Files that might appear on external disk
 .Spotlight-V100
 .Trashes
-
-
-Assembly*
-Mono*
-mscorlib.dll
-System*
-TDx*
-UnityEngine.dll
-*.pdb
-*.jar
