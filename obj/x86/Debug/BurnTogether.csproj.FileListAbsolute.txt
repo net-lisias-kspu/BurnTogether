@@ -33,3 +33,8 @@ D:\KSP\Mods\PJS\Git\Source\BurnTogether\bin\Debug\StringFormatter.dll
 D:\KSP\Mods\PJS\Git\Source\BurnTogether\bin\Debug\TDx.TDxInput.dll
 D:\KSP\Mods\PJS\Git\Source\BurnTogether\bin\Debug\Mono.Security.dll
 D:\KSP\Mods\PJS\Git\Source\BurnTogether\bin\Debug\UnityEngine.xml
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\obj\x86\Debug\BurnTogether.csprojResolveAssemblyReference.cache
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\BurnTogether.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\BurnTogether.pdb
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\obj\x86\Debug\BurnTogether.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\obj\x86\Debug\BurnTogether.pdb
