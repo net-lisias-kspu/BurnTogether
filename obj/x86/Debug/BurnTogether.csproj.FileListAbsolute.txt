@@ -38,3 +38,14 @@ C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\BurnTogether.dll
 C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\BurnTogether.pdb
 C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\obj\x86\Debug\BurnTogether.dll
 C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\obj\x86\Debug\BurnTogether.pdb
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\Assembly-CSharp-firstpass.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\Assembly-CSharp.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\KSPAssets.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\UnityEngine.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\UnityEngine.UI.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\TrackIRUnity.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\System.Xml.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\Mono.Cecil.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\TDx.TDxInput.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\Mono.Security.dll
+C:\cygwin\home\dlane\repo\gamerepo\BurnTogether\bin\Debug\UnityEngine.xml
