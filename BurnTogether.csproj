@@ -58,21 +58,26 @@
     <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>..\KSP\1.3\Assembly-CSharp.dll</HintPath>
+    <Reference Include="Assembly-CSharp, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\SteamApps\common\Kerbal Space Program\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\KSP\1.3\Assembly-CSharp-firstpass.dll</HintPath>
+    <Reference Include="Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\SteamApps\common\Kerbal Space Program\KSP_x64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
-    <Reference Include="KSPAssets">
-      <HintPath>..\KSP\1.3\KSPAssets.dll</HintPath>
+    <Reference Include="KSPAssets, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\SteamApps\common\Kerbal Space Program\KSP_x64_Data\Managed\KSPAssets.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="UnityEngine">
-      <HintPath>..\KSP\1.3\UnityEngine.dll</HintPath>
+    <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\SteamApps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
-    <Reference Include="UnityEngine.UI">
-      <HintPath>..\KSP\1.3\UnityEngine.UI.dll</HintPath>
+    <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\SteamApps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -103,7 +108,7 @@
   </ItemGroup>
   <PropertyGroup>
     <PostBuildEvent>@echo $(Targetname)
-SET ModName=BurnTogether
+SET ModName=$(Targetname)
 @echo ...
 @echo set lpath vars from LocalDev storage...
 set /p KSP_DIR=&lt;"$(ProjectDir)LocalDev\ksp_dir.txt"
@@ -111,20 +116,13 @@ set /p PDB2MDB_EXE=&lt;"$(ProjectDir)LocalDev\pdb2mdb_exe.txt"
 set /p ZA_DIR=&lt;"$(ProjectDir)LocalDev\7za_dir.txt"
 set /p DIST_DIR=&lt;"$(ProjectDir)LocalDev\dist_dir.txt"
 
-@echo distributing $(Targetname) files...
+@echo distributing $(Targetname) files for build and compression...
 copy /Y "$(TargetPath)" "$(ProjectDir)Distribution\GameData\%25ModName%25\Plugins\"
-copy /Y "$(TargetPath)" "C:\Users\dlane\Dropbox\Kerbal\ModDevelopment\Release"
-
-if $(ConfigurationName) == Debug (
-@echo building $(Targetname).dll.mdb file...
-cd "$(TargetDir)"
-call "%25PDB2MDB_EXE%25" $(Targetname).dll
-copy /Y "$(TargetDir)$(Targetname).dll.mdb" "%25KSP_DIR%25\GameData\%25ModName%25\Plugins\"
-)
+rem copy /Y "$(TargetPath)" "C:\Users\dlane\Dropbox\Kerbal\ModDevelopment\Release"
 
 @echo deleting previous build ...
 if exist "%25DIST_DIR%25\%25ModName%25*.zip" del "%25DIST_DIR%25\%25ModName%25*.zip"
-@echo packaging new build...
+@echo packaging (compressing) new build using assembly and date info...
 call "%25ZA_DIR%25\7za.exe" a -tzip -r  "%25DIST_DIR%25\%25ModName%25.@(VersionNumber)_%25DATE:~4,2%25%25DATE:~7,2%25%25DATE:~10,4%25.zip" "$(ProjectDir)Distribution\*.*"
 
 @echo Deploy $(Targetname) Distribution files to test env:  %25KSP_DIR%25\GameData...
@@ -132,7 +130,14 @@ call "%25ZA_DIR%25\7za.exe" a -tzip -r  "%25DIST_DIR%25\%25ModName%25.@(VersionN
 xcopy /E /Y "$(SolutionDir)Distribution\GameData" "%25KSP_DIR%25\GameData"
 
 if $(ConfigurationName) == Debug (
+@echo building debug files for test purposes into mod plugin folder.
+@echo building $(Targetname).pdb file...
 copy /Y "$(TargetDir)$(Targetname).pdb" "%25KSP_DIR%25\GameData\%25ModName%25\Plugins\"
+
+@echo building $(Targetname).dll.mdb file...
+cd "$(TargetDir)"
+call "%25PDB2MDB_EXE%25" $(Targetname).dll
+xcopy /E/Y "$(TargetDir)$(Targetname).dll.mdb" "%25KSP_DIR%25\GameData\%25ModName%25\Plugins\"
 )
 
 @echo Build/deploy complete!</PostBuildEvent>

@@ -1,4 +1,10 @@
-﻿v0.0.7.2 - alpha release. 
+﻿v0.0.7.4 - beta release
+- Recompiled for KSP 1.4.x.
+
+v0.0.7.3 - alpha relese.
+- Recompiled for KSP 1.3
+
+v0.0.7.2 - alpha release. 
 - Recompiled for KSP 1.2pr
 
 v0.0.7.1 - alpha release.  First release by Papa_Joe and the BDAarmory Team
