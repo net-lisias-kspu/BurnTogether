@@ -1,80 +1,12 @@
-#######################################
-Project Ignore
-#######################################
-
-#BurnTogether/Distribution/GameData/BurnTogether/Plugins/BurnTogether.dll
-BurnTogether/.vs
-BurnTogether/obj
-BurnTogether/bin/Debug/
-
-BurnTogether/.vs/config
-BurnTogether/LocalDev/7za_dir.txt
-BurnTogether/LocalDev/dist_dir.txt
-BurnTogether/LocalDev/ksp_dir.txt
-BurnTogether/LocalDev/mono_exe.txt
-BurnTogether/LocalDev/pdb2mdb_exe.txt
-BurnTogether/BurnTogether.userprefs
-
-#######################################
-Unity Ignore
-#######################################
-
-TrackIRUnity.dll
-Assembly-*
-Mono*
-TDx*
-UnityEngine.dll
-*.pdb
-*.jar
-*.bat
-*.zip
-KSPAssets.dll
-KSPCore.dll
-KSPUtil.dll
-SaveUpgradePipeline.Core.dll
-UnityEngine.UI.dll
-UnityEngine.xml
-Vectrosity.dll
-
-#######################################
-#######################################
-System*
-mscorlib.dll
-
-# Windows image file caches
-Thumbs.db
-ehthumbs.db
-
-# Folder config file
-Desktop.ini
-
-# Recycle Bin used on file shares
-$RECYCLE.BIN/
-
-# Windows Installer files
-*.cab
-*.msi
-*.msm
-*.msp
-
-# =========================
-# Operating System Files
-# =========================
-
-# OSX
-# =========================
-
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Icon must ends with two \r.
-Icon
-# Thumbnails
-._*
-
-# Files that might appear on external disk
-.Spotlight-V100
-.Trashes
-*.user
-bin/Debug/BurnTogether.dll.mdb
+.vs
+bin
+obj
+GameData/**/*.dll
+GameData/**/*LICENSE
+GameData/**/NOTICE
+GameData/**/README.md
+GameData/**/CHANGE_LOG.md
+GameData/**/CHANGES.md
+GameData/**/*.version
+Source/*/Properties/Version.cs
+Source/*/*.user
